@@ -1,0 +1,28 @@
+{
+  "builds": [
+    {
+      "src": "thapargpt-frontend",
+      "use": "nixpacks",
+      "config": {
+        "buildCommand": "npm run build",
+        "startCommand": "npm start"
+      }
+    },
+    {
+      "src": "backend",
+      "use": "nixpacks"
+    }
+  ],
+  "routes": [
+    {
+      "handle": "thapargpt-frontend",
+      "src": "/(.*)",
+      "dest": "/thapargpt-frontend"
+    },
+    {
+      "handle": "backend",
+      "src": "/api/(.*)",
+      "dest": "/backend"
+    }
+  ]
+}
