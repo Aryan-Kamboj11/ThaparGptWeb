@@ -40,11 +40,9 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "https://ThaparGptWeb.app",
   "engines": {
     "node": "18.x"
   },
-  "homepage": "https://aryan-kamboj11.github.io/ThaparGptWeb",
   "devDependencies": {
     "gh-pages": "^6.3.0"
   }
