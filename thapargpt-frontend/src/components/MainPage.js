@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// import axios from 'axios';
 import styles from '../styles/MainPage.module.css';
+import api from '../api';
 
 const MainPage = () => {
   const [user, setUser] = useState(null);
@@ -22,13 +23,13 @@ const MainPage = () => {
     const fetchData = async () => {
       try {
         // Fetch user data
-        const userRes = await axios.get('/api/user', {
+        const userRes = await api.get('/api/user', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(userRes.data);
 
         // Fetch history data
-        const historyRes = await axios.get('/api/history', {
+        const historyRes = await api.get('/api/history', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -65,7 +66,7 @@ const MainPage = () => {
     try {
       const token = localStorage.getItem('token');
       console.log('Making API request to /api/query with query:', query);
-      const res = await axios.post(
+      const res = await api.post(
         '/api/query',
         { query },
         {

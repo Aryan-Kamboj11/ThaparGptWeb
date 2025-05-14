@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
-
+// import axios from 'axios';
+import api from '../api'; // Adjust the import based on your project structure
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -15,7 +15,7 @@ const Login = () => {
         setError('');
         
         try {
-            const res = await axios.post('/api/login', { email, password });
+            const res = await api.post('/api/login', { email, password });
             localStorage.setItem('token', res.data.token);
             navigate('/');
         } catch (err) {

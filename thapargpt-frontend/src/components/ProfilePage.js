@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// import axios from 'axios';
 // import './ProfilePage.css'; // We'll create this CSS file next
+import api from '../api'; // Adjust the import based on your project structure
+// Adjust the import based on your project structure
 
 const ProfilePage = () => {
   const [userData, setUserData] = useState({
@@ -34,7 +36,7 @@ const ProfilePage = () => {
           return;
         }
 
-        const response = await axios.get('/api/user', {
+        const response = await api.get('/api/user', {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -91,7 +93,7 @@ const ProfilePage = () => {
         updateData.newPassword = formData.newPassword;
       }
 
-      const response = await axios.put('/api/user', updateData, {
+      const response = await api.put('/api/user', updateData, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -112,7 +114,7 @@ const ProfilePage = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/api/logout', {}, {
+      await api.post('/api/logout', {}, {
         headers: {
           Authorization: `Bearer ${token}`
         }

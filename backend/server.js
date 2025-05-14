@@ -12,7 +12,12 @@ const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 const NGROK_API = process.env.REACT_APP_BACKEND_URL || 'https://842a-106-219-122-87.ngrok-free.app/api/ask';
 
-app.use(cors());
+const corsOptions = {
+  origin: ['https://thapar-gpt-web-ywn9.vercel.app', 'http://localhost:3000'],
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
 app.use(bodyParser.json());
 
 app.use((req, res, next) => {
