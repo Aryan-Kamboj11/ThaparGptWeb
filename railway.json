@@ -2,7 +2,8 @@
   "build": {
     "builder": "nixpacks",
     "buildCommand": "cd thapargpt-frontend && npm install && npm run build",
-    "startCommand": "cd thapargpt-frontend && npm start",
-    "nodeVersion": "16"  
+    "startCommand": "serve -s thapargpt-frontend/build -l 3000",
+    "installCommand": "cd thapargpt-frontend && npm install",
+    "nodeVersion": "18"
   }
 }
