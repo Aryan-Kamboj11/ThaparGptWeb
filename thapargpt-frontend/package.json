@@ -42,7 +42,7 @@
     ]
   },
   "proxy": "http://localhost:3000",
-  "homepage": "https://aryan-kamboj11.github.io/ThaparEnv/Web/thapargpt-frontend",
+  "homepage": "https://aryan-kamboj11.github.io/ThaparGptWeb",
   "devDependencies": {
     "gh-pages": "^6.3.0"
   }
