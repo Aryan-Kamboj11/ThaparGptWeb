@@ -1,9 +1,9 @@
 {
   "build": {
     "builder": "nixpacks",
-    "buildCommand": "cd thapargpt-frontend && npm install && npm run build",
-    "startCommand": "serve -s thapargpt-frontend/build -l 3000",
-    "installCommand": "cd thapargpt-frontend && npm install",
-    "nodeVersion": "18"
+    "buildCommand": "npm --prefix ./thapargpt-frontend install && npm --prefix ./thapargpt-frontend run build",
+    "startCommand": "npm --prefix ./thapargpt-frontend start",
+    "nodeVersion": "18.x",
+    "installCommand": "npm --prefix ./thapargpt-frontend install"
   }
 }
