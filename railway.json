@@ -20,5 +20,15 @@
   "routes": [
     {"handle": "frontend", "src": "/*", "dest": "/thapargpt-frontend"},
     {"handle": "api", "src": "/api/*", "dest": "/backend"}
-  ]
+  ],
+  "build": {
+    "builder": "nixpacks",
+    "buildCommand": "cd thapargpt-frontend && npm install && npm run build",
+    "startCommand": "cd thapargpt-frontend && npm start",
+    "outputDirectory": "thapargpt-frontend/build",
+    "installCommand": "cd thapargpt-frontend && npm install"
+  },
+  "deploy": {
+    "startCommand": "cd backend && node server.js"
+  }
 }
