@@ -1,2 +1,5 @@
+[phases]
+setup = "npm install"
+
 [start]
 cmd = "node server.js"

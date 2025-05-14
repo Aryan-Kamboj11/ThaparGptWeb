@@ -1,26 +1,8 @@
 {
-  "builds": [
-    {
-      "src": "thapargpt-frontend",
-      "use": "nixpacks",
-      "config": {
-        "buildCommand": "npm install && npm run build",
-        "startCommand": "npm start",
-        "outputDirectory": "build",
-        "nodeVersion": "18.x"
-      }
-    },
-    {
-      "src": "backend",
-      "use": "nixpacks",
-      "config": {
-        "startCommand": "npm start",
-        "nodeVersion": "18.x"
-      }
-    }
-  ],
-  "routes": [
-    {"handle": "frontend", "src": "/*", "dest": "/thapargpt-frontend"},
-    {"handle": "api", "src": "/api/*", "dest": "/backend"}
-  ]
+  "build": {
+    "builder": "nixpacks",
+    "buildCommand": "cd thapargpt-frontend && npm install && npm run build",
+    "startCommand": "cd thapargpt-frontend && npm start",
+    "nodeVersion": "16"  
+  }
 }
