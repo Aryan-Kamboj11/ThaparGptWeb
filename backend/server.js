@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 const NGROK_API = process.env.REACT_APP_BACKEND_URL || 'https://842a-106-219-122-87.ngrok-free.app/api/ask';
 
 const corsOptions = {
-  origin: ['https://thapar-gpt-web-ywn9.vercel.app', 'http://localhost:3000'],
+  origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
   credentials: true,
 };
 app.use(cors(corsOptions));
