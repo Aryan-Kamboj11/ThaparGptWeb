@@ -1,9 +1,6 @@
 {
   "build": {
-    "builder": "nixpacks",
-    "buildCommand": "npm --prefix ./thapargpt-frontend install && npm --prefix ./thapargpt-frontend run build",
-    "startCommand": "npm --prefix ./thapargpt-frontend start",
-    "nodeVersion": "18.x",
-    "installCommand": "npm --prefix ./thapargpt-frontend install"
+    "builder": "docker",
+    "dockerfile": "Dockerfile"
   }
 }
