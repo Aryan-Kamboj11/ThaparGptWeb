@@ -10,7 +10,7 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
-const NGROK_API = process.env.REACT_APP_BACKEND_URL || 'https://842a-106-219-122-87.ngrok-free.app/api/ask';
+const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-production.up.railway.app/api/ask';
 
 const corsOptions = {
   origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
