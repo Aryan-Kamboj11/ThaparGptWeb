@@ -23,20 +23,22 @@ export default function ForgotPassword() {
       setIsLoading(false);
     }
   };
-
+  
   const handleVerifyCode = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await api.post('/api/verify-reset-code', { email, code: verificationCode });
-      navigate('/reset-password', { state: { email, code: verificationCode } });
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'Invalid verification code');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  e.preventDefault();
+  setIsLoading(true);
+  try {
+    // Store email and code for the reset page
+    localStorage.setItem('resetEmail', email);
+    localStorage.setItem('resetCode', verificationCode);
+    
+    navigate('/reset-password');
+  } catch (err) {
+    setMessage(err.response?.data?.message || 'Invalid verification code');
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
     <div className="auth-form">
       <h2>Forgot Password</h2>

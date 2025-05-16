@@ -13,9 +13,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-production.up.railway.app/api/ask';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-const corsOptions = {
+// CORS configuration
+app.use(cors(corsOptions));const corsOptions = {
   origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
-  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
 };
 app.use(cors(corsOptions));
 
@@ -255,6 +258,40 @@ app.post('/api/request-password-reset', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error sending code' });
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  // Remove authorization header for this endpoint
+  delete req.headers.authorization;
+
+  const { email, code, newPassword } = req.body;
+  
+  try {
+    // Verify the code first (using your tempCodes Map)
+    const storedCode = tempCodes.get(email);
+    if (!storedCode || storedCode.code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+    
+    if (Date.now() > storedCode.expiresAt) {
+      return res.status(400).json({ message: 'Code has expired' });
+    }
+
+    // Update password in database
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE email = $2',
+      [hashedPassword, email]
+    );
+
+    // Clear the used code
+    tempCodes.delete(email);
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Error resetting password' });
   }
 });
 

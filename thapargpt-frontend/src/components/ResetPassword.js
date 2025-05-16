@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 export default function ResetPassword() {
@@ -7,7 +7,6 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { state } = useLocation();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,15 +19,25 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     try {
-      await api.post('/api/reset-password', {
-        email: state?.email,
-        code: state?.code,
+      // Get email and code from location state
+      const email = localStorage.getItem('resetEmail');
+      const code = localStorage.getItem('resetCode');
+      
+      // Make sure to use the correct endpoint
+      const response = await api.post('/api/reset-password', {
+        email,
+        code,
         newPassword
+      }, {
+        headers: {
+          Authorization: '' // Explicitly remove auth header
+        }
       });
-      setMessage('Password reset successfully! Redirecting to login...');
+
+      setMessage('Password updated successfully! Redirecting...');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Error resetting password');
+      setMessage(err.response?.data?.message || 'Failed to update password');
     } finally {
       setIsLoading(false);
     }
@@ -58,10 +67,12 @@ export default function ResetPassword() {
           />
         </div>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Resetting...' : 'Reset Password'}
+          {isLoading ? 'Updating...' : 'Update Password'}
         </button>
       </form>
-      {message && <div className="message">{message}</div>}
+      {message && <div className={`message ${message.includes('success') ? 'success' : 'error'}`}>
+        {message}
+      </div>}
     </div>
   );
 }
