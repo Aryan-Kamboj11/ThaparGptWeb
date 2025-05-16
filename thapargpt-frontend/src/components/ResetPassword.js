@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 export default function ResetPassword({ token }) {
   const [newPassword, setNewPassword] = useState('');
@@ -16,7 +16,7 @@ export default function ResetPassword({ token }) {
     }
 
     try {
-      const res = await axios.post('/api/reset-password', { token, newPassword });
+      const res = await api.post('/api/reset-password', { token, newPassword });
       setMessage(res.data.message);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Failed to reset password');

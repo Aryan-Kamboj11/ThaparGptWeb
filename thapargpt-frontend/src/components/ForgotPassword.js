@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 export default function ForgetPassword() {
   const [email, setEmail] = useState('');
@@ -12,7 +12,7 @@ export default function ForgetPassword() {
     setResetLink('');
 
     try {
-      const res = await axios.post('/api/forget-password', { email });
+      const res = await api.post('/api/forget-password', { email });
       setMessage(res.data.message);
       setResetLink(res.data.resetLink); // You can show this or send by email in production
     } catch (err) {
