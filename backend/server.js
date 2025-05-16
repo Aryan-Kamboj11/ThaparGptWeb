@@ -21,14 +21,24 @@ app.use(cors({
 }));
 
 const corsOptions = {
-  origin: FRONTEND_URL,
-  methods: ['POST'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
+  origin: [
+    FRONTEND_URL,
+    'http://localhost:3000' // For local testing
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', // Allow auth header
+    'X-Requested-With'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200 // For legacy browser support
 };
 
 app.use(cors(corsOptions));
 
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
 
 app.use((req, res, next) => {
@@ -239,32 +249,38 @@ app.get('/api/user', authenticate, async (req, res) => {
 // In development: Store codes in memory
 const tempCodes = new Map();
 
+// Generate and store reset codes
 app.post('/api/request-password-reset', async (req, res) => {
   const { email } = req.body;
-  
+  console.log('Reset request for:', email); // Debug log
+
   try {
-    // Check if user exists (but don't reveal if they don't)
+    // 1. Verify user exists
     const user = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (!user.rows.length) {
-      return res.json({ message: 'If this email exists, a code has been sent' });
+    if (user.rows.length === 0) {
+      console.log('No user found for email:', email);
+      return res.json({ message: 'If this email exists, a code will be sent' });
     }
 
-    // Generate 6-digit code
+    // 2. Generate 6-digit code (DEV: logs to console)
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15*60000); // 15 minutes
     
-    // In production: Send via email
-    console.log(`Password reset code for ${email}: ${code}`);
-    
-    // Store code (in memory for development)
-    tempCodes.set(email, { 
-      code,
-      expiresAt: Date.now() + 15*60*1000 // 15 minutes
-    });
+    // 3. Store in database
+    await pool.query(
+      `INSERT INTO password_reset_codes (user_id, code, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) 
+       DO UPDATE SET code = $2, expires_at = $3`,
+      [user.rows[0].id, code, expiresAt]
+    );
 
+    console.log('Reset code:', code); // DEV ONLY - remove in production
     res.json({ message: 'Verification code sent' });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error sending code' });
+    console.error('Code generation error:', err);
+    res.status(500).json({ message: 'Error generating reset code' });
   }
 });
 
