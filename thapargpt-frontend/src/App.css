@@ -760,3 +760,85 @@ a, button, input, textarea {
     transform: translateY(0);
   }
 }
+.forgot-password-container,
+.reset-password-container {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fafafa;
+  font-family: Arial, sans-serif;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.btn {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 0;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn:hover {
+  background-color: #0056b3;
+}
+
+.message {
+  margin-top: 20px;
+  color: #d9534f; /* red-ish for errors */
+  font-weight: 600;
+  text-align: center;
+}
+
+.reset-link {
+  margin-top: 15px;
+  text-align: center;
+  word-break: break-word;
+}
+
+.reset-link a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.reset-link a:hover {
+  text-decoration: underline;
+}
+.reset-link a:visited {
+  color: #0056b3;
+}
+.reset-link a:active {
+  color: #004085;
+}

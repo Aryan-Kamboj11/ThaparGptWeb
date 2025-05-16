@@ -225,58 +225,87 @@ app.get('/api/user', authenticate, async (req, res) => {
     }
 });
 
-// FORGET PASSWORD - generate reset token and return reset link
-app.post('/api/forget-password', async (req, res) => {
+// Request password reset (step 1)
+app.post('/api/request-password-reset', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required' });
 
   try {
+    // Check if user exists
     const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found with this email' });
+      // For security, don't reveal if email doesn't exist
+      return res.json({ message: 'If this email exists, a reset link has been sent' });
     }
 
-    const user = userResult.rows[0];
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '15m' });
+    // Generate JWT token (expires in 15 minutes)
+    const token = jwt.sign(
+      { id: userResult.rows[0].id, action: 'password_reset' }, 
+      JWT_SECRET, 
+      { expiresIn: '15m' }
+    );
 
-    // Build a reset link to send back (frontend URL + token)
+    // In production, you would send this via email
     const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
+    console.log(`Password reset link for ${email}: ${resetLink}`);
 
-    console.log(`🔗 Password reset link: ${resetLink}`);
-
-    res.json({ message: 'Reset password link generated', resetLink });
+    res.json({ 
+      message: 'If this email exists, a reset link has been sent',
+      // In development, return the link for testing
+      ...(process.env.NODE_ENV === 'development' && { resetLink }) 
+    });
   } catch (err) {
-    console.error('Forget password error:', err);
+    console.error('Password reset request error:', err);
     res.status(500).json({ message: 'Server error during password reset request' });
   }
 });
 
-// RESET PASSWORD - verify token, update password in DB
+// Verify token and update password (steps 2 & 3 combined)
 app.post('/api/reset-password', async (req, res) => {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) return res.status(400).json({ message: 'Token and new password are required' });
+  const { token, newPassword, confirmPassword } = req.body;
+  if (!token || !newPassword || !confirmPassword) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ message: 'Passwords do not match' });
+  }
 
   try {
+    // Verify JWT token
     const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Additional check to ensure this is a password reset token
+    if (decoded.action !== 'password_reset') {
+      return res.status(400).json({ message: 'Invalid token type' });
+    }
+
     const userId = decoded.id;
 
-    const passwordHash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
-    const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id', [passwordHash, userId]);
-
-    if (result.rowCount === 0) {
+    // Check if user exists
+    const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ message: 'Password reset successful' });
+    // Hash and update password
+    const passwordHash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+
+    res.json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error('Reset password error:', err);
+    
     if (err.name === 'TokenExpiredError') {
-      return res.status(400).json({ message: 'Reset token expired' });
+      return res.status(400).json({ message: 'Reset link has expired' });
     }
-    res.status(400).json({ message: 'Invalid token or other error' });
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(400).json({ message: 'Invalid reset link' });
+    }
+    
+    res.status(500).json({ message: 'Server error during password reset' });
   }
 });
-
 
 // GET QUERY HISTORY
 app.get('/api/history', authenticate, async (req, res) => {
