@@ -14,31 +14,23 @@ const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-productio
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // CORS configuration
-
-app.use(cors({
-    origin: FRONTEND_URL,
-    credentials: true,
-}));
-
 const corsOptions = {
   origin: [
     FRONTEND_URL,
-    'http://localhost:3000' // For local testing
+    'https://thapar-gpt-web-5lu5.vercel.app',
+    'http://localhost:3000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', // Allow auth header
-    'X-Requested-With'
-  ],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
-  optionsSuccessStatus: 200 // For legacy browser support
+  optionsSuccessStatus: 200
 };
-
-app.use(cors(corsOptions));
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
+
+app.use(cors(corsOptions));
+
 app.use(bodyParser.json());
 
 app.use((req, res, next) => {
@@ -249,108 +241,78 @@ app.get('/api/user', authenticate, async (req, res) => {
 // In development: Store codes in memory
 const tempCodes = new Map();
 
-// Generate and store reset codes
+// Store codes in database instead of memory
 app.post('/api/request-password-reset', async (req, res) => {
   const { email } = req.body;
-  console.log('Reset request for:', email); // Debug log
-
+  
   try {
-    // 1. Verify user exists
+    // 1. Check user exists
     const user = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (user.rows.length === 0) {
-      console.log('No user found for email:', email);
-      return res.json({ message: 'If this email exists, a code will be sent' });
+    if (!user.rows.length) {
+      return res.json({ message: 'If this email exists, a code has been sent' });
     }
 
-    // 2. Generate 6-digit code (DEV: logs to console)
+    // 2. Generate and store code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15*60000); // 15 minutes
-    
-    // 3. Store in database
     await pool.query(
       `INSERT INTO password_reset_codes (user_id, code, expires_at)
-       VALUES ($1, $2, $3)
+       VALUES ($1, $2, NOW() + interval '15 minutes')
        ON CONFLICT (user_id) 
-       DO UPDATE SET code = $2, expires_at = $3`,
-      [user.rows[0].id, code, expiresAt]
+       DO UPDATE SET code = $2, expires_at = NOW() + interval '15 minutes'`,
+      [user.rows[0].id, code]
     );
 
-    console.log('Reset code:', code); // DEV ONLY - remove in production
+    console.log(`Password reset code: ${code}`); // Remove in production
     res.json({ message: 'Verification code sent' });
-
   } catch (err) {
-    console.error('Code generation error:', err);
-    res.status(500).json({ message: 'Error generating reset code' });
+    console.error(err);
+    res.status(500).json({ message: 'Error sending code' });
   }
 });
 
-// Password Reset Endpoint
+// Add this table to your database initialization:
+await client.query(`
+  CREATE TABLE IF NOT EXISTS password_reset_codes (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 app.post('/api/reset-password', async (req, res) => {
-  console.log('Reset password request received:', req.body); // Debug log
-  
+  // Remove authorization header for this endpoint
+  delete req.headers.authorization;
+
   const { email, code, newPassword } = req.body;
   
-  // Validation
-  if (!email || !code || !newPassword) {
-    return res.status(400).json({ success: false, message: 'All fields are required' });
-  }
-
   try {
-    // 1. Verify the reset code
-    const userResult = await pool.query(
-      `SELECT u.id, r.code, r.expires_at 
-       FROM users u
-       JOIN password_reset_codes r ON u.id = r.user_id
-       WHERE u.email = $1`,
-      [email]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(400).json({ success: false, message: 'Invalid email or code' });
-    }
-
-    const resetData = userResult.rows[0];
-    
-    // Check code and expiration
-    if (resetData.code !== code) {
-      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    // Verify the code first (using your tempCodes Map)
+    const storedCode = tempCodes.get(email);
+    if (!storedCode || storedCode.code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code' });
     }
     
-    if (new Date(resetData.expires_at) < new Date()) {
-      return res.status(400).json({ success: false, message: 'Verification code expired' });
+    if (Date.now() > storedCode.expiresAt) {
+      return res.status(400).json({ message: 'Code has expired' });
     }
 
-    // 2. Update password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-    
-    const updateResult = await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
-      [hashedPassword, resetData.id]
-    );
-
-    if (updateResult.rowCount === 0) {
-      throw new Error('No user was updated');
-    }
-
-    // 3. Clean up used code
+    // Update password in database
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await pool.query(
-      'DELETE FROM password_reset_codes WHERE user_id = $1',
-      [resetData.id]
+      'UPDATE users SET password_hash = $1 WHERE email = $2',
+      [hashedPassword, email]
     );
 
-    console.log(`Password updated for user ${email}`); // Debug log
-    res.json({ success: true, message: 'Password updated successfully' });
-    
+    // Clear the used code
+    tempCodes.delete(email);
+
+    res.json({ message: 'Password updated successfully' });
   } catch (err) {
-    console.error('Password reset error:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update password',
-      error: err.message 
-    });
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Error resetting password' });
   }
 });
+
 app.post('/api/verify-reset-code', async (req, res) => {
   const { email, code } = req.body;
   
