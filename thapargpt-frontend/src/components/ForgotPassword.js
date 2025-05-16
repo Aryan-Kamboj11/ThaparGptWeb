@@ -14,31 +14,32 @@ export default function ForgetPassword() {
     try {
       const res = await api.post('/api/forget-password', { email });
       setMessage(res.data.message);
-      setResetLink(res.data.resetLink); // You can show this or send by email in production
+      setResetLink(res.data.resetLink);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Something went wrong');
     }
   };
 
   return (
-    <div>
-      <h2>Forget Password</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
+    <div className="forgot-password-container">
+      <h2 className="title">Forget Password</h2>
+      <form className="form" onSubmit={handleSubmit}>
+        <label className="label">
           Email:
           <input
+            className="input"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
           />
         </label>
-        <button type="submit">Send Reset Link</button>
+        <button className="btn" type="submit">Send Reset Link</button>
       </form>
 
-      {message && <p>{message}</p>}
+      {message && <p className="message">{message}</p>}
       {resetLink && (
-        <p>
+        <p className="reset-link">
           Reset Link: <a href={resetLink} target="_blank" rel="noopener noreferrer">{resetLink}</a>
         </p>
       )}

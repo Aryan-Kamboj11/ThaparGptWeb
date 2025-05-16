@@ -11,6 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-production.up.railway.app/api/ask';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const corsOptions = {
   origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
@@ -239,8 +240,7 @@ app.post('/api/forget-password', async (req, res) => {
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '15m' });
 
     // Build a reset link to send back (frontend URL + token)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+    const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
 
     console.log(`🔗 Password reset link: ${resetLink}`);
 

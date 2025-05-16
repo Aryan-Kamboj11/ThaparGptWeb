@@ -24,12 +24,13 @@ export default function ResetPassword({ token }) {
   };
 
   return (
-    <div>
-      <h2>Reset Password</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
+    <div className="reset-password-container">
+      <h2 className="title">Reset Password</h2>
+      <form className="form" onSubmit={handleSubmit}>
+        <label className="label">
           New Password:
           <input
+            className="input"
             type="password"
             value={newPassword}
             onChange={e => setNewPassword(e.target.value)}
@@ -37,9 +38,10 @@ export default function ResetPassword({ token }) {
           />
         </label>
         <br />
-        <label>
+        <label className="label">
           Confirm Password:
           <input
+            className="input"
             type="password"
             value={confirmPassword}
             onChange={e => setConfirmPassword(e.target.value)}
@@ -47,10 +49,10 @@ export default function ResetPassword({ token }) {
           />
         </label>
         <br />
-        <button type="submit">Reset Password</button>
+        <button className="btn" type="submit">Reset Password</button>
       </form>
 
-      {message && <p>{message}</p>}
+      {message && <p className="message">{message}</p>}
     </div>
   );
 }
