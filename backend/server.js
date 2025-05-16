@@ -270,15 +270,7 @@ app.post('/api/request-password-reset', async (req, res) => {
   }
 });
 
-// Add this table to your database initialization:
-await client.query(`
-  CREATE TABLE IF NOT EXISTS password_reset_codes (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    code VARCHAR(6) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+// Moved the password_reset_codes table creation to initializeDatabase function
 app.post('/api/reset-password', async (req, res) => {
   // Remove authorization header for this endpoint
   delete req.headers.authorization;
@@ -340,6 +332,7 @@ app.post('/api/verify-reset-code', async (req, res) => {
     res.status(500).json({ message: 'Error verifying code' });
   }
 });
+
 // GET QUERY HISTORY
 app.get('/api/history', authenticate, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
@@ -414,6 +407,16 @@ async function initializeDatabase() {
                 is_error BOOLEAN DEFAULT FALSE,
                 error_message TEXT,
                 status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Moved the password_reset_codes table creation here
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS password_reset_codes (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                code VARCHAR(6) NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
