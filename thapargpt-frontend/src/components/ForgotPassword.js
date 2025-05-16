@@ -1,71 +1,47 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../api'; // Adjust the path based on your project
+import axios from 'axios';
 
-const ForgotPassword = () => {
-    const [email, setEmail] = useState('');
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+export default function ForgetPassword() {
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [resetLink, setResetLink] = useState('');
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError('');
-        setMessage('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage('');
+    setResetLink('');
 
-        try {
-            const res = await api.post('/api/forgot-password', { email });
-            setMessage(res.data.message || 'Password reset instructions sent to your email.');
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send reset link. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    try {
+      const res = await axios.post('/api/forget-password', { email });
+      setMessage(res.data.message);
+      setResetLink(res.data.resetLink); // You can show this or send by email in production
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Something went wrong');
+    }
+  };
 
-    return (
-        <div className="auth-container">
-            <h2>Forgot Password</h2>
-            <p className="text-center mt-3">Enter your email to reset your password</p>
+  return (
+    <div>
+      <h2>Forget Password</h2>
+      <form onSubmit={handleSubmit}>
+        <label>
+          Email:
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit">Send Reset Link</button>
+      </form>
 
-            {message && (
-                <div className="success-message">
-                    {message}
-                </div>
-            )}
-            {error && (
-                <div className="error-message">
-                    {error}
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label>Email Address</label>
-                    <input
-                        type="email"
-                        className="form-control"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                </div>
-
-                <button 
-                    type="submit" 
-                    className="btn btn-primary btn-block mt-3"
-                    disabled={isLoading}
-                >
-                    {isLoading ? 'Sending...' : 'Send Reset Link'}
-                </button>
-            </form>
-
-            <div className="text-center mt-3">
-                <Link to="/login" className="link-text">Back to Login</Link>
-            </div>
-        </div>
-    );
-};
-
-export default ForgotPassword;
+      {message && <p>{message}</p>}
+      {resetLink && (
+        <p>
+          Reset Link: <a href={resetLink} target="_blank" rel="noopener noreferrer">{resetLink}</a>
+        </p>
+      )}
+    </div>
+  );
+}
