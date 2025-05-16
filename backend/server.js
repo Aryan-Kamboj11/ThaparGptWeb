@@ -15,8 +15,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // CORS configuration
 const corsOptions = {
-  origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: FRONTEND_URL,
+  methods: ['POST'],
   allowedHeaders: ['Content-Type'],
   credentials: true
 };
@@ -261,40 +261,73 @@ app.post('/api/request-password-reset', async (req, res) => {
   }
 });
 
+// Password Reset Endpoint
 app.post('/api/reset-password', async (req, res) => {
-  // Remove authorization header for this endpoint
-  delete req.headers.authorization;
-
+  console.log('Reset password request received:', req.body); // Debug log
+  
   const { email, code, newPassword } = req.body;
   
-  try {
-    // Verify the code first (using your tempCodes Map)
-    const storedCode = tempCodes.get(email);
-    if (!storedCode || storedCode.code !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-    
-    if (Date.now() > storedCode.expiresAt) {
-      return res.status(400).json({ message: 'Code has expired' });
-    }
+  // Validation
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ success: false, message: 'All fields are required' });
+  }
 
-    // Update password in database
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE email = $2',
-      [hashedPassword, email]
+  try {
+    // 1. Verify the reset code
+    const userResult = await pool.query(
+      `SELECT u.id, r.code, r.expires_at 
+       FROM users u
+       JOIN password_reset_codes r ON u.id = r.user_id
+       WHERE u.email = $1`,
+      [email]
     );
 
-    // Clear the used code
-    tempCodes.delete(email);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid email or code' });
+    }
 
-    res.json({ message: 'Password updated successfully' });
+    const resetData = userResult.rows[0];
+    
+    // Check code and expiration
+    if (resetData.code !== code) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    }
+    
+    if (new Date(resetData.expires_at) < new Date()) {
+      return res.status(400).json({ success: false, message: 'Verification code expired' });
+    }
+
+    // 2. Update password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    const updateResult = await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
+      [hashedPassword, resetData.id]
+    );
+
+    if (updateResult.rowCount === 0) {
+      throw new Error('No user was updated');
+    }
+
+    // 3. Clean up used code
+    await pool.query(
+      'DELETE FROM password_reset_codes WHERE user_id = $1',
+      [resetData.id]
+    );
+
+    console.log(`Password updated for user ${email}`); // Debug log
+    res.json({ success: true, message: 'Password updated successfully' });
+    
   } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ message: 'Error resetting password' });
+    console.error('Password reset error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update password',
+      error: err.message 
+    });
   }
 });
-
 app.post('/api/verify-reset-code', async (req, res) => {
   const { email, code } = req.body;
   
