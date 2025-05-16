@@ -226,87 +226,65 @@ app.get('/api/user', authenticate, async (req, res) => {
 });
 
 // Request password reset (step 1)
+// In development: Store codes in memory
+const tempCodes = new Map();
+
 app.post('/api/request-password-reset', async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ message: 'Email is required' });
-
+  
   try {
-    // Check if user exists
-    const userResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (userResult.rows.length === 0) {
-      // For security, don't reveal if email doesn't exist
-      return res.json({ message: 'If this email exists, a reset link has been sent' });
+    // Check if user exists (but don't reveal if they don't)
+    const user = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (!user.rows.length) {
+      return res.json({ message: 'If this email exists, a code has been sent' });
     }
 
-    // Generate JWT token (expires in 15 minutes)
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // In production: Send via email
+    console.log(`Password reset code for ${email}: ${code}`);
+    
+    // Store code (in memory for development)
+    tempCodes.set(email, { 
+      code,
+      expiresAt: Date.now() + 15*60*1000 // 15 minutes
+    });
+
+    res.json({ message: 'Verification code sent' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error sending code' });
+  }
+});
+
+app.post('/api/verify-reset-code', async (req, res) => {
+  const { email, code } = req.body;
+  
+  try {
+    const storedCode = tempCodes.get(email);
+    
+    if (!storedCode || storedCode.code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+    
+    if (Date.now() > storedCode.expiresAt) {
+      return res.status(400).json({ message: 'Code has expired' });
+    }
+    
+    // Code is valid - generate token for password reset
     const token = jwt.sign(
-      { id: userResult.rows[0].id, action: 'password_reset' }, 
-      JWT_SECRET, 
+      { email, action: 'password_reset' },
+      process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
-
-    // In production, you would send this via email
-    const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
-    console.log(`Password reset link for ${email}: ${resetLink}`);
-
-    res.json({ 
-      message: 'If this email exists, a reset link has been sent',
-      // In development, return the link for testing
-      ...(process.env.NODE_ENV === 'development' && { resetLink }) 
-    });
+    
+    res.json({ token });
   } catch (err) {
-    console.error('Password reset request error:', err);
-    res.status(500).json({ message: 'Server error during password reset request' });
+    console.error(err);
+    res.status(500).json({ message: 'Error verifying code' });
   }
 });
-
-// Verify token and update password (steps 2 & 3 combined)
-app.post('/api/reset-password', async (req, res) => {
-  const { token, newPassword, confirmPassword } = req.body;
-  if (!token || !newPassword || !confirmPassword) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
-  if (newPassword !== confirmPassword) {
-    return res.status(400).json({ message: 'Passwords do not match' });
-  }
-
-  try {
-    // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Additional check to ensure this is a password reset token
-    if (decoded.action !== 'password_reset') {
-      return res.status(400).json({ message: 'Invalid token type' });
-    }
-
-    const userId = decoded.id;
-
-    // Check if user exists
-    const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Hash and update password
-    const passwordHash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
-
-    res.json({ message: 'Password updated successfully' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    
-    if (err.name === 'TokenExpiredError') {
-      return res.status(400).json({ message: 'Reset link has expired' });
-    }
-    if (err.name === 'JsonWebTokenError') {
-      return res.status(400).json({ message: 'Invalid reset link' });
-    }
-    
-    res.status(500).json({ message: 'Server error during password reset' });
-  }
-});
-
 // GET QUERY HISTORY
 app.get('/api/history', authenticate, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
