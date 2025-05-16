@@ -239,7 +239,7 @@ app.get('/api/user', authenticate, async (req, res) => {
 
 // Request password reset (step 1)
 // In development: Store codes in memory
-const tempCodes = new Map();
+// const tempCodes = new Map();
 
 // Store codes in database instead of memory
 app.post('/api/request-password-reset', async (req, res) => {
@@ -271,65 +271,80 @@ app.post('/api/request-password-reset', async (req, res) => {
 });
 
 // Moved the password_reset_codes table creation to initializeDatabase function
-app.post('/api/reset-password', async (req, res) => {
-  // Remove authorization header for this endpoint
-  delete req.headers.authorization;
+// VERIFY RESET CODE (Now uses DB)
+app.post('/api/verify-reset-code', async (req, res) => {
+  const { email, code } = req.body;
 
-  const { email, code, newPassword } = req.body;
-  
   try {
-    // Verify the code first (using your tempCodes Map)
-    const storedCode = tempCodes.get(email);
-    if (!storedCode || storedCode.code !== code) {
+    const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (!userRes.rows.length) return res.status(400).json({ message: 'Invalid email or code' });
+
+    const userId = userRes.rows[0].id;
+
+    const codeRes = await pool.query(
+      `SELECT code, expires_at FROM password_reset_codes WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (!codeRes.rows.length || codeRes.rows[0].code !== code) {
       return res.status(400).json({ message: 'Invalid verification code' });
     }
-    
-    if (Date.now() > storedCode.expiresAt) {
+
+    if (new Date() > codeRes.rows[0].expires_at) {
       return res.status(400).json({ message: 'Code has expired' });
     }
 
-    // Update password in database
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE email = $2',
-      [hashedPassword, email]
+    // Code valid
+    const token = jwt.sign(
+      { email, action: 'password_reset' },
+      JWT_SECRET,
+      { expiresIn: '15m' }
     );
 
-    // Clear the used code
-    tempCodes.delete(email);
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error verifying code' });
+  }
+});
+
+// RESET PASSWORD (Now uses DB)
+app.post('/api/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  try {
+    const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (!userRes.rows.length) return res.status(400).json({ message: 'Invalid email or code' });
+
+    const userId = userRes.rows[0].id;
+
+    const codeRes = await pool.query(
+      `SELECT code, expires_at FROM password_reset_codes WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (!codeRes.rows.length || codeRes.rows[0].code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+
+    if (new Date() > codeRes.rows[0].expires_at) {
+      return res.status(400).json({ message: 'Code has expired' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [hashedPassword, userId]
+    );
+
+    // Remove used code
+    await pool.query('DELETE FROM password_reset_codes WHERE user_id = $1', [userId]);
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ message: 'Error resetting password' });
-  }
-});
-
-app.post('/api/verify-reset-code', async (req, res) => {
-  const { email, code } = req.body;
-  
-  try {
-    const storedCode = tempCodes.get(email);
-    
-    if (!storedCode || storedCode.code !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-    
-    if (Date.now() > storedCode.expiresAt) {
-      return res.status(400).json({ message: 'Code has expired' });
-    }
-    
-    // Code is valid - generate token for password reset
-    const token = jwt.sign(
-      { email, action: 'password_reset' },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-    
-    res.json({ token });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error verifying code' });
   }
 });
 
