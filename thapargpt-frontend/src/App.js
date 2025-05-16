@@ -4,7 +4,9 @@ import MainPage from './components/MainPage';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ProfilePage from './components/ProfilePage.js';
-import './App.css'
+import ForgotPassword from './components/ForgotPassword'; // New import
+import ResetPassword from './components/ResetPassword';   // New import
+import './App.css';
 
 function App() {
     return (
@@ -14,6 +16,8 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />  {/* New route */}
+                <Route path="/reset-password/:token" element={<ResetPassword />} />  {/* New route */}
             </Routes>
         </Router>
     );

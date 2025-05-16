@@ -224,6 +224,59 @@ app.get('/api/user', authenticate, async (req, res) => {
     }
 });
 
+// FORGOT PASSWORD
+app.post('/api/forget-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    try {
+        const userResult = await pool.query('SELECT id, email FROM users WHERE email = $1', [email]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found with this email' });
+        }
+
+        const user = userResult.rows[0];
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+        console.log(`🔗 Password reset link (send via email): ${resetLink}`);
+
+        // In production, send the reset link via email
+        res.json({ message: 'Reset password link sent to email (mock)', resetLink });
+    } catch (err) {
+        console.error('Forgot password error:', err);
+        res.status(500).json({ message: 'Server error during password reset request' });
+    }
+});
+
+// RESET PASSWORD
+app.post('/api/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+        return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userResult = await pool.query('SELECT id FROM users WHERE id = $1 AND email = $2', [decoded.id, decoded.email]);
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ message: 'Invalid token or user not found' });
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, decoded.id]);
+
+        res.json({ message: 'Password reset successful' });
+    } catch (err) {
+        console.error('Reset password error:', err);
+        if (err.name === 'TokenExpiredError') {
+            return res.status(400).json({ message: 'Reset token expired' });
+        }
+        res.status(400).json({ message: 'Invalid or expired token' });
+    }
+});
+
+
 // GET QUERY HISTORY
 app.get('/api/history', authenticate, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
