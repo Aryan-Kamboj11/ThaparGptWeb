@@ -14,7 +14,7 @@ const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-productio
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // CORS configuration
-app.use(cors(corsOptions));const corsOptions = {
+const corsOptions = {
   origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type'],
