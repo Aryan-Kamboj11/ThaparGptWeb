@@ -10,25 +10,12 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
-const NGROK_API = process.env.THAPAR_GPT_API_URL || 'https://thaparenv-production.up.railway.app/api/ask';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const NGROK_API = process.env.THAPAR_GPT_API_KEY || 'https://thaparenv-production.up.railway.app/api/ask';
 
-// CORS configuration
 const corsOptions = {
-  origin: [
-    FRONTEND_URL,
-    'https://thapar-gpt-web-5lu5.vercel.app',
-    'http://localhost:3000'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  origin: [process.env.VERCEL_URL, 'http://localhost:3000'],
   credentials: true,
-  optionsSuccessStatus: 200
 };
-
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
@@ -237,117 +224,6 @@ app.get('/api/user', authenticate, async (req, res) => {
     }
 });
 
-// Request password reset (step 1)
-// In development: Store codes in memory
-// const tempCodes = new Map();
-
-// Store codes in database instead of memory
-app.post('/api/request-password-reset', async (req, res) => {
-  const { email } = req.body;
-  
-  try {
-    // 1. Check user exists
-    const user = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (!user.rows.length) {
-      return res.json({ message: 'If this email exists, a code has been sent' });
-    }
-
-    // 2. Generate and store code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await pool.query(
-      `INSERT INTO password_reset_codes (user_id, code, expires_at)
-       VALUES ($1, $2, NOW() + interval '15 minutes')
-       ON CONFLICT (user_id) 
-       DO UPDATE SET code = $2, expires_at = NOW() + interval '15 minutes'`,
-      [user.rows[0].id, code]
-    );
-
-    console.log(`Password reset code: ${code}`); // Remove in production
-    res.json({ message: 'Verification code sent' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error sending code' });
-  }
-});
-
-// Moved the password_reset_codes table creation to initializeDatabase function
-// VERIFY RESET CODE (Now uses DB)
-app.post('/api/verify-reset-code', async (req, res) => {
-  const { email, code } = req.body;
-
-  try {
-    const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (!userRes.rows.length) return res.status(400).json({ message: 'Invalid email or code' });
-
-    const userId = userRes.rows[0].id;
-
-    const codeRes = await pool.query(
-      `SELECT code, expires_at FROM password_reset_codes WHERE user_id = $1`,
-      [userId]
-    );
-
-    if (!codeRes.rows.length || codeRes.rows[0].code !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-
-    if (new Date() > codeRes.rows[0].expires_at) {
-      return res.status(400).json({ message: 'Code has expired' });
-    }
-
-    // Code valid
-    const token = jwt.sign(
-      { email, action: 'password_reset' },
-      JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    res.json({ token });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error verifying code' });
-  }
-});
-
-// RESET PASSWORD (Now uses DB)
-app.post('/api/reset-password', async (req, res) => {
-  const { email, code, newPassword } = req.body;
-
-  try {
-    const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (!userRes.rows.length) return res.status(400).json({ message: 'Invalid email or code' });
-
-    const userId = userRes.rows[0].id;
-
-    const codeRes = await pool.query(
-      `SELECT code, expires_at FROM password_reset_codes WHERE user_id = $1`,
-      [userId]
-    );
-
-    if (!codeRes.rows.length || codeRes.rows[0].code !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-
-    if (new Date() > codeRes.rows[0].expires_at) {
-      return res.status(400).json({ message: 'Code has expired' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [hashedPassword, userId]
-    );
-
-    // Remove used code
-    await pool.query('DELETE FROM password_reset_codes WHERE user_id = $1', [userId]);
-
-    res.json({ message: 'Password updated successfully' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ message: 'Error resetting password' });
-  }
-});
-
 // GET QUERY HISTORY
 app.get('/api/history', authenticate, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
@@ -422,16 +298,6 @@ async function initializeDatabase() {
                 is_error BOOLEAN DEFAULT FALSE,
                 error_message TEXT,
                 status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        // Moved the password_reset_codes table creation here
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS password_reset_codes (
-                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-                code VARCHAR(6) NOT NULL,
-                expires_at TIMESTAMP NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
